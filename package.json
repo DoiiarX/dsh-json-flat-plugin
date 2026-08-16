@@ -1,5 +1,5 @@
 {
-  "name": "@local/dsh-json-flat-plugin",
+  "name": "@doiiarx/dsh-json-flat-plugin",
   "version": "0.1.0",
   "private": true,
   "type": "module",
