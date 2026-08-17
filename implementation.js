@@ -62,8 +62,12 @@ async function writeJsonToFs(fsSvc, filePath, data, sandboxPolicy) {
 }
 
 /** Resolve a source arg that may be a value string, inline JSON, or @file. */
-async function resolveValueArg(arg, fsSvc, cwd) {
+export async function resolveValueArg(arg, fsSvc, cwd) {
   if (typeof arg !== 'string') return arg
+  // `@@` escapes the `@` prefix: `@@pkg` is the literal string `@pkg`
+  // (no @file read, no JSON parsing), so scope names like `@scope/name`
+  // can be written as values.
+  if (arg.startsWith('@@')) return arg.slice(1)
   if (arg.startsWith('@')) {
     const filePath = arg.slice(1).trim()
     if (!fsSvc) throw new Error('@file reads require the fs service')
@@ -123,7 +127,7 @@ export function applyJsonFlat(ctx, config = {}, report = () => {}) {
   const viewParams = {
     source: {
       type: 'string',
-      description: 'JSON 文本、@文件路径，或省略以从 stdin/document 读取',
+      description: 'JSON 文本、@文件路径（@@ 转义为字面 @ 开头文本），或省略以从 stdin/document 读取',
     },
     file: {
       type: 'string',
@@ -177,7 +181,7 @@ export function applyJsonFlat(ctx, config = {}, report = () => {}) {
       name: 'json_flat_schema',
       description: '推断 JSON 的 JSON Schema Draft 7 结构（数组采样前 20 项，required=非空字段）。',
       parameters: {
-        source: { type: 'string', description: 'JSON 文本、@文件路径，或省略' },
+        source: { type: 'string', description: 'JSON 文本、@文件路径（@@ 转义为字面 @ 开头文本），或省略' },
         file: { type: 'string', description: '从 fs 服务读取的 JSON 文件路径（优先于 source）' },
         title: { type: 'string', description: 'Schema 标题；缺省 "Inferred Schema"' },
       },
@@ -203,7 +207,7 @@ export function applyJsonFlat(ctx, config = {}, report = () => {}) {
       name: 'json_flat_find',
       description: '在 JSON 扁平化路径和值中按 regex 或 glob 搜索；-k 仅路径、-v 仅值、-i 忽略大小写、-g glob 模式。',
       parameters: {
-        source: { type: 'string', description: 'JSON 文本、@文件路径，或省略' },
+        source: { type: 'string', description: 'JSON 文本、@文件路径（@@ 转义为字面 @ 开头文本），或省略' },
         file: { type: 'string', description: '从 fs 服务读取的 JSON 文件路径（优先于 source）' },
         pattern: { type: 'string', required: true, description: 'regex（默认）或 glob 模式（globMode=true 时，用 * 通配整串）' },
         keyOnly: { type: 'boolean', description: '仅匹配路径' },
@@ -239,7 +243,7 @@ export function applyJsonFlat(ctx, config = {}, report = () => {}) {
       name: 'json_flat_edit',
       description: '编辑 JSON：set / del / before / after / set-null / copy / merge。读 file 或 source，默认 dry-run 预览 diff，apply=true 时通过 fs 写回。',
       parameters: {
-        source: { type: 'string', description: 'JSON 文本、@文件路径，或省略' },
+        source: { type: 'string', description: 'JSON 文本、@文件路径（@@ 转义为字面 @ 开头文本），或省略' },
         file: {
           type: 'string',
           required: true,
@@ -256,7 +260,7 @@ export function applyJsonFlat(ctx, config = {}, report = () => {}) {
           required: true,
           description: '路径，如 users[0].name、root.count、tags[2] 等',
         },
-        value: { type: 'string', description: '新值（JSON 解析，失败按字符串）；@文件路径可从文件读值（set/before/after）' },
+        value: { type: 'string', description: '新值（JSON 解析，失败按字符串）；@文件路径可从文件读值；@@ 转义为字面 @ 开头字符串（set/before/after）' },
         srcPath: { type: 'string', description: 'copy 的原路径' },
         dstPath: { type: 'string', description: 'copy 的目标路径' },
         patchFile: { type: 'string', description: 'merge 的补丁 JSON 文件路径' },
@@ -336,6 +340,10 @@ export function applyJsonFlat(ctx, config = {}, report = () => {}) {
 async function loadData(args, fsSvc) {
   if (args.file && fsSvc) {
     return readJsonFromFs(fsSvc, args.file)
+  }
+  if (typeof args.source === 'string' && args.source.startsWith('@@')) {
+    // `@@` escapes the `@` file-prefix: parse the `@…` remainder as inline JSON/text.
+    return parseValue(args.source.slice(1))
   }
   if (typeof args.source === 'string' && args.source.startsWith('@') && fsSvc) {
     return readJsonFromFs(fsSvc, args.source.slice(1).trim())

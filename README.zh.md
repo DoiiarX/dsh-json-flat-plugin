@@ -24,6 +24,10 @@ schema 推断、搜索、基于路径的编辑），让 agent 能直接查看和
   `file`（通过 `fs` 服务解析的路径）。即使没有 `fs`，内联 JSON 也能工作。
 - **`json_flat_edit`** 需要 `fs` 服务，且始终作用于 `file`。
   dry-run 返回 `changes` 但从不写入；`apply: true` 原子地写回结果。
+- **`@` 前缀与 `@@` 转义**：以单个 `@` 开头的字符串参数（`source` 或 `value`）
+  表示从文件读取 JSON。要写入以 `@` 开头的字面字符串（如 npm 作用域包名
+  `@scope/name`），用 `@@` 转义：`@@pkg` 写入字面值 `@pkg`（不读文件、不做
+  JSON 解析）。
 
 ## 路径语法
 

@@ -27,6 +27,11 @@ out to a Python script.
 - **`json_flat_edit`** requires the `fs` service and always works on `file`.
   A dry-run returns `changes` but never writes; `apply: true` atomically writes
   the result back.
+- **`@` prefix and `@@` escape**: a string argument (`source` or `value`)
+  starting with a single `@` reads JSON from that file. To write a literal
+  string that starts with `@` (e.g. an npm scoped package name like
+  `@scope/name`), escape it with `@@`: `@@pkg` writes the literal `@pkg`
+  (no file read, no JSON parsing).
 
 ## Path syntax
 

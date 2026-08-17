@@ -23,6 +23,7 @@ import {
   findRows,
   prepareView,
 } from './json-flat-core.js'
+import { resolveValueArg } from './implementation.js'
 
 const doc = {
   users: [
@@ -221,4 +222,25 @@ test('prepareView element slicing returns totals', () => {
   assert.strictEqual(shownElements, 1)
   assert.ok(rows.some(([p]) => p === 'users[0].name'))
   assert.ok(!rows.some(([p]) => p.startsWith('users[1]')))
+})
+
+test('resolveValueArg @@ escapes a literal @ string', async () => {
+  // scope package names and other @-prefixed literals are writable via @@
+  assert.strictEqual(await resolveValueArg('@@pinkbanana/dsh-balance', undefined, undefined),
+    '@pinkbanana/dsh-balance')
+  assert.strictEqual(await resolveValueArg('@@', undefined, undefined), '@')
+  assert.strictEqual(await resolveValueArg('@@123', undefined, undefined), '@123')
+  // non-string args pass through untouched
+  assert.strictEqual(await resolveValueArg(42, undefined, undefined), 42)
+})
+
+test('resolveValueArg @file read requires the fs service', async () => {
+  await assert.rejects(() => resolveValueArg('@some/file.json', undefined, undefined),
+    /@file reads require the fs service/)
+})
+
+test('resolveValueArg parses JSON then falls back to string', async () => {
+  assert.strictEqual(await resolveValueArg('123', undefined, undefined), 123)
+  assert.strictEqual(await resolveValueArg('"quoted"', undefined, undefined), 'quoted')
+  assert.strictEqual(await resolveValueArg('plain text', undefined, undefined), 'plain text')
 })
